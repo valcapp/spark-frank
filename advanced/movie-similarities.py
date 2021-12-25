@@ -17,7 +17,7 @@ def parse_args() -> None:
     return parser.parse_args()
 
 def getMovieNames(spark: SparkSession, resource_path: str) -> DataFrame:
-    movieNamesSchema = StructType([ 
+    movieNamesSchema = StructType([
         StructField("movieID", IntegerType(), True),
         StructField("movieTitle", StringType(), True)
     ])
@@ -30,7 +30,8 @@ def getMovieNames(spark: SparkSession, resource_path: str) -> DataFrame:
 
 def getMovieName(movieNames: DataFrame, movieID: int) -> str:
     return \
-        movieNames.where(sf.col("movieID") == movieID)\
+        movieNames\
+            .where(sf.col("movieID") == movieID)\
             .first()['movieTitle']
 
 def getMovies(spark: SparkSession, resource_path: str) -> DataFrame:
@@ -69,20 +70,15 @@ def cosineSimilarity(pairs: DataFrame) -> DataFrame:
     similarity = scores\
         .groupBy('movie_x', 'movie_y')\
         .agg(
-            sf.sum('xy')\
-                .alias('numerator'),
-            (sf.sqrt(sf.sum('xx')) * sf.sqrt(sf.sum('yy')))\
-                .alias('denominator'),
-            sf.count('xy')\
-                .alias('coOccurrence')
+            sf.sum('xy').alias('numerator'),
+            sf.sqrt(sf.sum('xx') * sf.sum('yy')).alias('denominator'),
+            sf.count('xy').alias('coOccurrence')
         )\
         .select(
             'movie_x', 'movie_y',
             sf.when(sf.col('denominator') != 0, 
                     sf.col('numerator')/sf.col('denominator')
-                )
-                # .otherwise(0)
-                .alias('score'),
+                ).alias('score'),
             'coOccurrence'
         )
     return similarity
