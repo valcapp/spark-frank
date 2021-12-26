@@ -112,7 +112,6 @@ def swapKeyVal(keyVal: Tuple[Any, Any]) -> Tuple[Any, Any]:
 # %%
 # Calculate similarities
 def getSimilarities(resource_path: str) -> RDD:
-    # ratings = sc.textFile(f"s3n://frank-spark-1m-movies/ratings.dat")\
     ratings = sc\
         .textFile(resource_path)\
         .map(parse_ratings_line)\
@@ -155,8 +154,10 @@ def main():
     # movieID = 1210
     movieID = parse_args().movieID
     pwd = Path(__file__).parent
-    movieNames = getMovieNames(f"{pwd}/../data/ml-1m/movies.dat")
-    moviesSimilarities = getSimilarities(f"{pwd}/../data/ml-1m/ratings-sample.dat")
+    movieNamesPath = f"{pwd}/../data/ml-1m/movies.dat"
+    ratingsPath = f"{pwd}/../data/ml-1m/ratings-sample.dat"
+    movieNames = getMovieNames(movieNamesPath)
+    moviesSimilarities = getSimilarities(ratingsPath)
     
     print(f"Calculating Top 10 recommendations based on movie: '{movieNames[movieID]}'")
     results = getTopSimilarTo(moviesSimilarities, movieID)
