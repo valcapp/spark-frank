@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 pyspark = "*"
 numpy = "*"
+pandas = "*"
+matplotlib = "*"
 
 [dev-packages]
 flake8 = "*"

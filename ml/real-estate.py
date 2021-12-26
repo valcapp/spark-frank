@@ -1,51 +1,57 @@
-from __future__ import print_function
-
+"""Predict price of house (PriceOfUnitArea) based on features (HouseAge, DistanceToMRT, NumberConvenienceStores)"""
+# %%
+from pyspark.sql import SparkSession, functions as sf
 from pyspark.ml.regression import DecisionTreeRegressor
-from pyspark.sql import SparkSession
+from pyspark.ml.evaluation import RegressionEvaluator
 from pyspark.ml.feature import VectorAssembler
+from pathlib import Path
 
-if __name__ == "__main__":
+# %%
 
-    # Create a SparkSession (Note, the config section is only for Windows!)
-    spark = SparkSession.builder.appName("DecisionTree").getOrCreate()
+def main():
+    # %%
+    spark = SparkSession.builder.appName('HousePrice').getOrCreate()
+    # %%
+    # constants
+    filePath = f"file:///{Path(__file__).parent}/../data/realestate.csv"
+    inputCols = ('HouseAge', 'DistanceToMRT', 'NumberConvenienceStores')
+    labelCol = 'PriceOfUnitArea'
+    # %%
+    # raw data
+    df = spark.read\
+        .option('header', 'true')\
+        .option('inferSchema', 'true')\
+        .csv(filePath)\
+        .select(labelCol, *inputCols)
+    # df.printSchema() or df.show(10)
+    # %%
+    # data ready for ML
+    assembler = VectorAssembler()\
+        .setInputCols(inputCols)\
+        .setOutputCol('features')
+    data = assembler\
+        .transform(df)\
+        .select(sf.col(labelCol).alias('label'), 'features')
+    # data.printSchema() or data.show(5)
+    # %%
+    # train model and predict
+    trainData, testData = data.randomSplit([.7, .3])
+    model = DecisionTreeRegressor().fit(trainData)
+    predictions = model.transform(testData)
+    # predictions.show(10)
+    # %%
+    # evaluate
+    rmse = RegressionEvaluator(
+        labelCol="label",
+        predictionCol="prediction",
+        metricName="rmse"
+    ).evaluate(predictions)
+    print(f"Root Mean Squared Error (RMSE) on test data = {rmse:.2f}")
+    # %%
 
-    
-    # Load up data as dataframe
-    data = spark.read.option("header", "true").option("inferSchema", "true")\
-        .csv("file:///SparkCourse/realestate.csv")
-
-    assembler = VectorAssembler().setInputCols(["HouseAge", "DistanceToMRT", \
-                               "NumberConvenienceStores"]).setOutputCol("features")
-    
-    df = assembler.transform(data).select("PriceOfUnitArea", "features")
-
-    # Let's split our data into training data and testing data
-    trainTest = df.randomSplit([0.5, 0.5])
-    trainingDF = trainTest[0]
-    testDF = trainTest[1]
-
-    # Now create our decision tree
-    dtr = DecisionTreeRegressor().setFeaturesCol("features").setLabelCol("PriceOfUnitArea")
-
-    # Train the model using our training data
-    model = dtr.fit(trainingDF)
-
-    # Now see if we can predict values in our test data.
-    # Generate predictions using our decision tree model for all features in our
-    # test dataframe:
-    fullPredictions = model.transform(testDF).cache()
-
-    # Extract the predictions and the "known" correct labels.
-    predictions = fullPredictions.select("prediction").rdd.map(lambda x: x[0])
-    labels = fullPredictions.select("PriceOfUnitArea").rdd.map(lambda x: x[0])
-
-    # Zip them together
-    predictionAndLabel = predictions.zip(labels).collect()
-
-    # Print out the predicted and actual values for each point
-    for prediction in predictionAndLabel:
-      print(prediction)
-
-
-    # Stop the session
-    spark.stop()
+# %%
+if __name__ == '__main__':
+    from time import perf_counter
+    start = perf_counter()
+    main()
+    print(f'Executed in {perf_counter() - start:.1f} s')
